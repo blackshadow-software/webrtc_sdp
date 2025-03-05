@@ -28,7 +28,7 @@ pub const FPS_LIMIT: f64 = 30.0;
 pub async fn start_screen_share() -> Result<()> {
     let mut media_engine = MediaEngine::default();
     media_engine.register_default_codecs()?;
-    let mut registry = Registry::new();
+    let registry = Registry::new();
     let api = APIBuilder::new()
         .with_media_engine(media_engine)
         .with_interceptor_registry(registry)
