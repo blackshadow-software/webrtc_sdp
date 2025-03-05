@@ -1,0 +1,21 @@
+[package]
+name = "webrtc_client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+webrtc = "0.12"
+anyhow = "1.0"
+tokio = { version = "1.43", features = ["full"] }
+# tokio-tungstenite = "0.14"
+reqwest = "0.12"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.22"
+lazy_static = "1.5"
+scrap = "0.5"
+image = "0.25"
+indexmap = "2.6"
+tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+futures-util = "0.3"
+url = "2.5"
