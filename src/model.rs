@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tokio_tungstenite::tungstenite::Message;
+use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
 use crate::CLIENT_SDP_OFFER;
 
@@ -28,5 +29,21 @@ impl SdpOfferAnswer {
 
     pub fn to_ws(&self) -> Message {
         Message::text(serde_json::to_string(&self).unwrap())
+    }
+}
+
+pub trait SdpImpl {
+    fn to_ws(&self) -> Message;
+
+    fn to_json(&self) -> String;
+}
+
+impl SdpImpl for RTCSessionDescription {
+    fn to_ws(&self) -> Message {
+        Message::text(serde_json::to_string(&self).unwrap())
+    }
+
+    fn to_json(&self) -> String {
+        serde_json::to_string(&self).unwrap()
     }
 }
