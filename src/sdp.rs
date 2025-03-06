@@ -1,7 +1,11 @@
-use anyhow::Result;
-use std::sync::{Arc, Mutex};
+use anyhow::{bail, Result};
+use scrap::Display;
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+    time::{Duration, Instant},
+};
 use tokio_tungstenite::tungstenite::Message;
-use webrtc::api::media_engine::MediaEngine;
 use webrtc::api::APIBuilder;
 use webrtc::interceptor::registry::Registry;
 use webrtc::peer_connection::configuration::RTCConfiguration;
@@ -9,10 +13,17 @@ use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
 use webrtc::track::track_local::track_local_static_sample::TrackLocalStaticSample;
 use webrtc::track::track_local::TrackLocal;
+use webrtc::{api::media_engine::MediaEngine, media::Sample};
 
 use crate::{
+    broad_cast::{
+        add_bytes_in_client_buffer, get_client_boradcast_enable, init_client_buffer,
+        set_client_boradcast_enable,
+    },
+    client::FPS_LIMIT,
     model::{SdpImpl, SdpOfferAnswer},
-    RTC_CONFIG,
+    screen_capture::capture_screen,
+    RTC_CONFIG, RTC_TRACK,
 };
 
 pub async fn create_sdp_offer() -> Result<SdpOfferAnswer> {
@@ -29,6 +40,8 @@ pub async fn create_sdp_offer() -> Result<SdpOfferAnswer> {
         "video".to_string(),
         "screen_share".to_string(),
     ));
+    RTC_TRACK.get_or_init(|| screen_track.clone());
+
     let peer_connection = APIBuilder::new()
         .with_media_engine(media_engine)
         .with_interceptor_registry(registry)
@@ -48,6 +61,15 @@ pub async fn create_sdp_offer() -> Result<SdpOfferAnswer> {
     let offer = SdpOfferAnswer::new(Some(sdp_offer.to_json()), None, None);
 
     Ok(offer)
+}
+
+pub async fn set_remote_answer_sdp(answer: &SdpOfferAnswer) -> Result<()> {
+    let answer: RTCSessionDescription = serde_json::from_str(&answer.answer.clone().unwrap())?;
+
+    let peer_conn = RTC_CONFIG.get().unwrap().lock().unwrap();
+    peer_conn.set_remote_description(answer).await?;
+
+    Ok(())
 }
 
 pub async fn create_sdp_answer(sdp_offer: String, client_id: &str) -> Result<Message> {
@@ -79,4 +101,56 @@ pub async fn create_sdp_answer(sdp_offer: String, client_id: &str) -> Result<Mes
     );
 
     Ok(offer.to_ws())
+}
+
+pub async fn start_screen_capture_loop() -> Result<()> {
+    let mut buffer_receiver = init_client_buffer();
+    match Display::primary() {
+        Ok(_) => {
+            set_client_boradcast_enable(true);
+
+            thread::spawn(move || {
+                let frame_time = Duration::from_secs_f64(1.0 / FPS_LIMIT as f64);
+                loop {
+                    let start_time = Instant::now();
+
+                    if get_client_boradcast_enable() == false {
+                        break;
+                    }
+
+                    match capture_screen() {
+                        Ok(screen_data) => {
+                            if screen_data.is_empty() {
+                                continue;
+                            }
+                            add_bytes_in_client_buffer(screen_data);
+                            let elapsed = start_time.elapsed();
+                            if elapsed < frame_time {
+                                thread::sleep(frame_time - elapsed);
+                            }
+                        }
+                        Err(e) => eprintln!("Failed to capture screen: {:?}", e),
+                    }
+                }
+            });
+        }
+        Err(e) => bail!("Failed to find primary Display with : {:?}", e),
+    }
+    loop {
+        tokio::select! {
+          Ok(buffer) = buffer_receiver.recv() => {
+            let b= buffer;
+            match RTC_TRACK.get().unwrap()
+            .write_sample(&Sample {
+                data: b.into(),
+                duration: Duration::from_millis(33),
+                ..Default::default()
+            })
+            .await
+            {
+                Ok(_) => println!("Sent frame to WebRTC track"  ),
+                Err(e) => eprintln!("Error sending fram {}",   e),
+            }
+        }}
+    }
 }
