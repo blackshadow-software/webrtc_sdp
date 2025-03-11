@@ -11,7 +11,7 @@ pub mod model;
 pub mod screen_capture;
 pub mod sdp;
 pub const CLIENT_SDP_OFFER: &str = "client_sdp_offer";
-pub static RTC_CONFIG: OnceLock<Mutex<RTCPeerConnection>> = OnceLock::new();
+pub static RTC_CONFIG: OnceLock<Arc<RTCPeerConnection>> = OnceLock::new();
 pub static RTC_TRACK: OnceLock<Arc<TrackLocalStaticSample>> = OnceLock::new();
 
 pub fn add(left: u64, right: u64) -> u64 {

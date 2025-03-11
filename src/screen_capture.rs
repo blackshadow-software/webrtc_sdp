@@ -19,7 +19,7 @@ pub fn capture_screen() -> Result<Vec<u8>> {
 
         match capturer.frame() {
             Ok(buffer) => {
-                println!("Captured screen");
+                print!("Captured screen. ");
                 // print_image_size(&buffer.to_vec());
                 let buffer = image_compress(buffer.to_vec(), width, height)?;
                 // save_rgb_image_from_bytes(buffer, width, height);
@@ -66,7 +66,7 @@ pub fn save_rgb_image_from_bytes(bytes: Vec<u8>, width: u32, height: u32) -> Res
 }
 
 fn image_compress(bytes: Vec<u8>, width: u32, height: u32) -> Result<Vec<u8>> {
-    print_image_size(bytes.clone());
+    // print_image_size(bytes.clone());
 
     if let Some(rgb_img) =
         // ImageBuffer<image::Rgba<u8>, Vec<u8>> =
@@ -87,7 +87,7 @@ fn scale_to_fixed_height(img: &mut DynamicImage, target_height: u32) -> DynamicI
     let (orig_width, orig_height) = (img.width() as u32, img.height() as u32);
     let aspect_ratio = orig_width as f32 / orig_height as f32;
     let new_width = (aspect_ratio * target_height as f32) as u32;
-    println!("width: {}, height: {}", new_width, target_height);
+    print!("width: {}, height: {} || ", new_width, target_height);
     img.resize(new_width, target_height, FilterType::Lanczos3)
 }
 
@@ -95,6 +95,9 @@ fn print_image_size(image_bytes: Vec<u8>) {
     let size_in_bytes = image_bytes.len();
     let size_in_kb = size_in_bytes as f64 / 1024.0;
 
-    println!("Image size: {:.2} KB", size_in_kb);
-    println!("Image size: {:.2} MB", size_in_kb / 1024.0);
+    println!(
+        "Image size: {:.2} MB |or| {:.2} KB || ",
+        size_in_kb / 1024.0,
+        size_in_kb
+    );
 }
