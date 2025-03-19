@@ -44,13 +44,17 @@ pub async fn init_sdp() -> Result<()> {
     let mut registry = Registry::new();
     registry = register_default_interceptors(registry, &mut media_engine)?;
     let config = RTCConfiguration {
-        ice_servers: vec![RTCIceServer {
-            urls: vec![
-                "stun:stun.l.google.com:19302".to_owned(),
-                "turn:103.197.204.49?transport=udp".to_owned(),
-            ],
-            ..Default::default()
-        }],
+        ice_servers: vec![
+            RTCIceServer {
+                urls: vec!["stun:stun.l.google.com:19302".to_owned()],
+                ..Default::default()
+            },
+            RTCIceServer {
+                urls: vec!["stun:stun.l.google.com:19302".to_owned()],
+                username: "user".to_string(),
+                credential: "password".to_string(),
+            },
+        ],
         ..Default::default()
     };
     let screen_track = Arc::new(TrackLocalStaticSample::new(
