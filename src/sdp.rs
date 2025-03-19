@@ -50,7 +50,7 @@ pub async fn init_sdp() -> Result<()> {
                 ..Default::default()
             },
             RTCIceServer {
-                urls: vec!["stun:stun.l.google.com:19302".to_owned()],
+                urls: vec!["turn:103.197.204.49?transport=udp".to_owned()],
                 username: "user".to_string(),
                 credential: "password".to_string(),
             },
