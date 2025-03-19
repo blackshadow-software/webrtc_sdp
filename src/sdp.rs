@@ -54,6 +54,11 @@ pub async fn init_sdp() -> Result<()> {
                 username: "user".to_string(),
                 credential: "password".to_string(),
             },
+            RTCIceServer {
+                urls: vec!["turn:103.197.204.49:50903".to_owned()],
+                username: "user".to_string(),
+                credential: "password".to_string(),
+            },
         ],
         ..Default::default()
     };
