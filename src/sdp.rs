@@ -45,7 +45,10 @@ pub async fn init_sdp() -> Result<()> {
     registry = register_default_interceptors(registry, &mut media_engine)?;
     let config = RTCConfiguration {
         ice_servers: vec![RTCIceServer {
-            urls: vec!["stun:stun.l.google.com:19302".to_owned()],
+            urls: vec![
+                "stun:stun.l.google.com:19302".to_owned(),
+                "turn:103.197.204.49?transport=udp".to_owned(),
+            ],
             ..Default::default()
         }],
         ..Default::default()
@@ -154,10 +157,11 @@ pub fn start_screen_capture_loop() -> Result<()> {
                     if get_client_boradcast_enable() == false {
                         break;
                     }
-
+                    println!("Starting gc");
                     match capture_screen() {
                         Ok(screen_data) => {
                             if screen_data.is_empty() {
+                                println!("Screen data is empty");
                                 continue;
                             }
                             add_bytes_in_client_buffer(screen_data);
@@ -173,6 +177,7 @@ pub fn start_screen_capture_loop() -> Result<()> {
         }
         Err(e) => bail!("Failed to find primary Display with : {:?}", e),
     }
+    println!("Screen capture loop will be started");
     std::thread::spawn(move || {
         println!("Starting screen buffer sender loop");
         Runtime::new().unwrap().block_on(async {

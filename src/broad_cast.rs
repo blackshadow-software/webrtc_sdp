@@ -38,7 +38,7 @@ pub fn add_bytes_in_client_buffer(bytes: Vec<u8>) {
 
     let tx = set.get(BUFFER).unwrap().clone();
     match tx.send(bytes) {
-        Ok(_) => {}
+        Ok(_) => println!("Bytes sent to broadcast"),
         Err(e) => {
             eprintln!("Error to send bytes to broadcast{:?}", e);
         }
