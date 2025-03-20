@@ -97,14 +97,15 @@ pub async fn my_ice_candidate() -> Result<String> {
                 if let Ok(ice) = c.to_json() {
                     if let Some(tx) = tx_arc.lock().unwrap().take() {
                         let _ = tx.send(ice.candidate);
+                        tx_arc.clear_poison();
                     }
                 }
             }
             Box::pin(async move {})
         }
     }));
-
-    let candidate_string = rx.await?;
+    tx_arc.clear_poison();
+    let candidate_string = rx.await.clone()?;
     Ok(candidate_string)
 }
 
