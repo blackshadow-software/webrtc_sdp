@@ -2,6 +2,7 @@ use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use scrap::Display;
 use std::{
+    io::Bytes,
     sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
@@ -29,8 +30,8 @@ use webrtc::{
 
 use crate::{
     broad_cast::{
-        add_bytes_in_client_buffer, get_client_boradcast_enable, init_client_buffer,
-        set_client_boradcast_enable,
+        add_bytes_in_client_buffer, get_client_boradcast_enable, get_client_buffer_sender,
+        init_client_buffer, set_client_boradcast_enable,
     },
     client::FPS_LIMIT,
     model::{SdpImpl, SdpOfferAnswer},
@@ -79,8 +80,10 @@ pub async fn init_sdp() -> Result<()> {
         .build()
         .new_peer_connection(config)
         .await?;
-    rtpc.add_track(Arc::clone(&screen_track) as Arc<dyn TrackLocal + Send + Sync>)
-        .await?;
+    // rtpc.add_track(Arc::clone(&screen_track) as Arc<dyn TrackLocal + Send + Sync>)
+    //     .await?;
+
+    rtpc.add_track(screen_track.clone()).await?;
     RTC_CONFIG.get_or_init(|| Arc::new(rtpc));
     Ok(())
 }
@@ -155,6 +158,7 @@ pub async fn set_ice_candidate(ice: String) -> Result<()> {
 }
 
 pub fn start_screen_capture_loop() -> Result<()> {
+    init_client_buffer();
     match Display::primary() {
         Ok(_) => {
             set_client_boradcast_enable(true);
@@ -167,7 +171,6 @@ pub fn start_screen_capture_loop() -> Result<()> {
                     if get_client_boradcast_enable() == false {
                         break;
                     }
-                    println!("Starting gc");
                     match capture_screen() {
                         Ok(screen_data) => {
                             if screen_data.is_empty() {
@@ -189,23 +192,35 @@ pub fn start_screen_capture_loop() -> Result<()> {
     }
     println!("Screen capture loop will be started");
     std::thread::spawn(move || {
-        println!("Starting screen buffer sender loop");
         Runtime::new().unwrap().block_on(async {
-            let mut buffer_receiver = init_client_buffer();
+            let receiver = get_client_buffer_sender();
+            let mut receiver = receiver.subscribe();
+
             loop {
                 tokio::select! {
-                  Ok(buffer) = buffer_receiver.recv() => {
+                  Ok(buffer) = receiver.recv() => {
                     let b= buffer;
-                    match RTC_TRACK.get().unwrap()
-                    .write_sample(&Sample {
-                        data: b.into(),
-                        duration: Duration::from_millis(33),
-                        ..Default::default()
-                    })
-                    .await
-                    {
-                        Ok(_) => println!("Sent frame to WebRTC track"  ),
-                        Err(e) => eprintln!("Error sending fram {}",   e),
+                    if b.is_empty() {
+                        println!("Received empty buffer from broadcast channel");
+                        continue;
+                    }
+                    match RTC_TRACK.get(){
+                        Some(t) => {
+                            match t.write_sample(&Sample {
+                                data: b.into(),
+                                duration: Duration::from_millis(33),
+                                ..Default::default()
+                            })
+                            .await
+                            {
+                                Ok(_) => println!("Sent frame to WebRTC track"  ),
+                                Err(e) => eprintln!("Error sending fram {}",   e),
+                            }
+                        }
+                        None=>{
+                            println!("RTC_TRACK is None, cannot send frame to WebRTC track");
+                            continue;
+                        }
                     }
                 }}
             }
@@ -258,12 +273,13 @@ pub fn get_client_frame() -> Result<()> {
                     println!("enter track loop {}", track.rid());
                     let mut map = IndexMap::new();
                     while let Ok((rtp, _)) = track.read_rtp().await {
+                        println!("h : {:?}", rtp.header);
+                        println!("p : {:?}", rtp.payload);
                         if map.get(&rtp.header.timestamp).is_none() {
                             map.clear();
                             map.insert(rtp.header.timestamp, rtp.clone());
                             println!("---------------------------------------------------");
                             // println!("read rtp packet from track {:?}", rtp);
-                            println!("read rtp packet from track {:?}", rtp.header);
                         }
                     }
                     println!("exit track loop {}", track.rid());
